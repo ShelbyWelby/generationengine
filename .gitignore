@@ -1,0 +1,13 @@
+# Visual Studio files
+bin/
+obj/
+*.user
+*.suo
+*.sln.docstates
+
+# .NET build outputs
+*.dll
+*.exe (except MyRpgEngine.exe in root if you want to keep it)
+
+# Other
+.vs/
