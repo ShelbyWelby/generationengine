@@ -12,7 +12,7 @@ namespace MyRpgEngine
     {
         private Player player;
         private NetClient client;
-        private Dictionary<long, Vector2> otherPlayers;
+        private Dictionary<long, PlayerData> otherPlayers;
 
         public Game() : base(new GameWindowSettings { UpdateFrequency = 60 }, new NativeWindowSettings
         {
@@ -23,7 +23,7 @@ namespace MyRpgEngine
         {
             NetPeerConfiguration config = new NetPeerConfiguration("MyRpg");
             client = new NetClient(config);
-            otherPlayers = new Dictionary<long, Vector2>();
+            otherPlayers = new Dictionary<long, PlayerData>();
         }
 
         protected override void OnLoad()
@@ -35,20 +35,20 @@ namespace MyRpgEngine
             player = new Player();
 
             client.Start();
-            client.Connect("127.0.0.1", 12345); // Localhost for testing
+            client.Connect("127.0.0.1", 12345);
         }
 
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
             player.Update((float)args.Time, this.KeyboardState);
 
-            // Send position to server
             NetOutgoingMessage msg = client.CreateMessage();
             msg.Write(player.Position.X);
             msg.Write(player.Position.Y);
+            msg.Write(player.Health);
+            msg.Write(player.Mana);
             client.SendMessage(msg, NetDeliveryMethod.Unreliable);
 
-            // Receive updates from server
             NetIncomingMessage inc;
             while ((inc = client.ReadMessage()) != null)
             {
@@ -61,8 +61,10 @@ namespace MyRpgEngine
                         long id = inc.ReadInt64();
                         float x = inc.ReadFloat();
                         float y = inc.ReadFloat();
-                        if (id != client.UniqueIdentifier) // Don’t add self
-                            otherPlayers[id] = new Vector2(x, y);
+                        int health = inc.ReadInt32();
+                        int mana = inc.ReadInt32();
+                        if (id != client.UniqueIdentifier)
+                            otherPlayers[id] = new PlayerData { Position = new Vector2(x, y), Health = health, Mana = mana };
                     }
                 }
             }
@@ -72,17 +74,16 @@ namespace MyRpgEngine
         {
             GL.Clear(ClearBufferMask.ColorBufferBit);
 
-            player.Render(); // Your red square
+            player.Render();
 
-            // Render other players as blue squares
-            foreach (var pos in otherPlayers.Values)
+            foreach (var data in otherPlayers.Values)
             {
                 GL.Begin(PrimitiveType.Quads);
-                GL.Color3(0.0f, 0.0f, 1.0f); // Blue
-                GL.Vertex2(pos.X - 50, pos.Y - 50);
-                GL.Vertex2(pos.X + 50, pos.Y - 50);
-                GL.Vertex2(pos.X + 50, pos.Y + 50);
-                GL.Vertex2(pos.X - 50, pos.Y + 50);
+                GL.Color3(0.0f, 0.0f, 1.0f);
+                GL.Vertex2(data.Position.X - 50, data.Position.Y - 50);
+                GL.Vertex2(data.Position.X + 50, data.Position.Y - 50);
+                GL.Vertex2(data.Position.X + 50, data.Position.Y + 50);
+                GL.Vertex2(data.Position.X - 50, data.Position.Y + 50);
                 GL.End();
             }
 
@@ -95,29 +96,49 @@ namespace MyRpgEngine
 
         protected override void OnUnload()
         {
-            client.Shutdown("Game closed");
+            client.Disconnect("Window closed");
             client.Shutdown("Client shutdown");
         }
     }
-
 
     class Player
     {
         public Vector2 Position { get; set; } = new Vector2(400, 300);
         public float Speed { get; set; } = 200f;
+        public int Health { get; set; } = 100;
+        public int Mana { get; set; } = 50;
 
         public void Update(float deltaTime, KeyboardState keyboard)
         {
-            if (keyboard.IsKeyDown(Keys.A)) Position += new Vector2(-Speed * deltaTime, 0);
-            if (keyboard.IsKeyDown(Keys.D)) Position += new Vector2(Speed * deltaTime, 0);
-            if (keyboard.IsKeyDown(Keys.W)) Position += new Vector2(0, -Speed * deltaTime);
-            if (keyboard.IsKeyDown(Keys.S)) Position += new Vector2(0, Speed * deltaTime);
+            Vector2 newPos = Position;
+            if (keyboard.IsKeyDown(Keys.A))
+            {
+                newPos += new Vector2(-Speed * deltaTime, 0);
+                System.Console.WriteLine("A pressed");
+            }
+            if (keyboard.IsKeyDown(Keys.D))
+            {
+                newPos += new Vector2(Speed * deltaTime, 0);
+                System.Console.WriteLine("D pressed");
+            }
+            if (keyboard.IsKeyDown(Keys.W))
+            {
+                newPos += new Vector2(0, -Speed * deltaTime);
+                System.Console.WriteLine("W pressed");
+            }
+            if (keyboard.IsKeyDown(Keys.S))
+            {
+                newPos += new Vector2(0, Speed * deltaTime);
+                System.Console.WriteLine("S pressed");
+            }
+            Position = Vector2.Clamp(newPos, new Vector2(50, 50), new Vector2(750, 550));
+            System.Console.WriteLine("New Position: " + Position);
         }
 
         public void Render()
         {
             GL.Begin(PrimitiveType.Quads);
-            GL.Color3(1.0f, 0.0f, 0.0f); // Red
+            GL.Color3(1.0f, 0.0f, 0.0f);
             GL.Vertex2(Position.X - 50, Position.Y - 50);
             GL.Vertex2(Position.X + 50, Position.Y - 50);
             GL.Vertex2(Position.X + 50, Position.Y + 50);

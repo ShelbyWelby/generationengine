@@ -5,17 +5,24 @@ using OpenTK.Mathematics;
 
 namespace MyRpgEngine
 {
+    class PlayerData
+    {
+        public Vector2 Position { get; set; }
+        public int Health { get; set; }
+        public int Mana { get; set; }   
+    }
+
     class Server
     {
         private NetServer server;
-        private Dictionary<long, Vector2> playerPositions;
+        private Dictionary<long, PlayerData> playerData;
 
         public Server()
         {
             NetPeerConfiguration config = new NetPeerConfiguration("MyRpg");
             config.Port = 12345;
             server = new NetServer(config);
-            playerPositions = new Dictionary<long, Vector2>();
+            playerData = new Dictionary<long, PlayerData>();
             server.Start();
             Console.WriteLine("Server started on port 12345...");
         }
@@ -33,15 +40,19 @@ namespace MyRpgEngine
                         case NetIncomingMessageType.Data:
                             float x = msg.ReadFloat();
                             float y = msg.ReadFloat();
-                            playerPositions[id] = new Vector2(x, y);
+                            int health = msg.ReadInt32();
+                            int mana = msg.ReadInt32();
+                            playerData[id] = new PlayerData { Position = new Vector2(x, y), Health = health, Mana = mana };
 
                             NetOutgoingMessage outMsg = server.CreateMessage();
-                            outMsg.Write(playerPositions.Count);
-                            foreach (var kvp in playerPositions)
+                            outMsg.Write(playerData.Count);
+                            foreach (var kvp in playerData)
                             {
                                 outMsg.Write(kvp.Key);
-                                outMsg.Write(kvp.Value.X);
-                                outMsg.Write(kvp.Value.Y);
+                                outMsg.Write(kvp.Value.Position.X);
+                                outMsg.Write(kvp.Value.Position.Y);
+                                outMsg.Write(health); // Send health as well
+                                outMsg.Write(mana); // Send mana as well
                             }
                             server.SendToAll(outMsg, NetDeliveryMethod.Unreliable);
                             break;
@@ -52,10 +63,10 @@ namespace MyRpgEngine
                             {
                                 Console.WriteLine($"Player {id} disconnected");
                                 // Remove player from the list
-                                if (playerPositions.ContainsKey(id))
-                                    playerPositions.Remove(id);
+                                if (playerData.ContainsKey(id))
+                                    playerData.Remove(id);
                             }
-                                playerPositions.Remove(id);
+                            playerData.Remove(id);
                             break;
                     }
                 }
