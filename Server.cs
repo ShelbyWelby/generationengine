@@ -5,13 +5,6 @@ using OpenTK.Mathematics;
 
 namespace MyRpgEngine
 {
-    class PlayerData
-    {
-        public Vector2 Position { get; set; }
-        public int Health { get; set; }
-        public int Mana { get; set; }   
-    }
-
     class Server
     {
         private NetServer server;
@@ -34,7 +27,7 @@ namespace MyRpgEngine
                 NetIncomingMessage msg;
                 while ((msg = server.ReadMessage()) != null)
                 {
-                    long id = msg.SenderConnection.RemoteUniqueIdentifier; // Moved here
+                    long id = msg.SenderConnection.RemoteUniqueIdentifier;
                     switch (msg.MessageType)
                     {
                         case NetIncomingMessageType.Data:
@@ -42,8 +35,35 @@ namespace MyRpgEngine
                             float y = msg.ReadFloat();
                             int health = msg.ReadInt32();
                             int mana = msg.ReadInt32();
-                            playerData[id] = new PlayerData { Position = new Vector2(x, y), Health = health, Mana = mana };
+                            bool isAttacking = msg.ReadBoolean();
+                            Console.WriteLine($"Received - ID {id} Health: {health}, Attacking: {isAttacking}");
 
+                            // Update player data
+                            if (!playerData.ContainsKey(id))
+                                playerData[id] = new PlayerData();
+                            playerData[id].Position = new Vector2(x, y);
+                            playerData[id].Mana = mana;
+                            playerData[id].IsAttacking = isAttacking;
+
+                            // Apply combat
+                            if (isAttacking)
+                            {
+                                foreach (var target in playerData)
+                                {
+                                    if (target.Key != id)
+                                    {
+                                        float distance = Vector2.Distance(playerData[id].Position, target.Value.Position);
+                                        if (distance < 150)
+                                        {
+                                            Console.WriteLine($"Before Hit - Target {target.Key} Health: {target.Value.Health}");
+                                            target.Value.Health = Math.Max(0, target.Value.Health - 10);
+                                            Console.WriteLine($"After Hit - Target {target.Key} Health: {target.Value.Health}");
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Send updated data
                             NetOutgoingMessage outMsg = server.CreateMessage();
                             outMsg.Write(playerData.Count);
                             foreach (var kvp in playerData)
@@ -51,8 +71,10 @@ namespace MyRpgEngine
                                 outMsg.Write(kvp.Key);
                                 outMsg.Write(kvp.Value.Position.X);
                                 outMsg.Write(kvp.Value.Position.Y);
-                                outMsg.Write(health); // Send health as well
-                                outMsg.Write(mana); // Send mana as well
+                                outMsg.Write(kvp.Value.Health);
+                                outMsg.Write(kvp.Value.Mana);
+                                outMsg.Write(kvp.Value.IsAttacking);
+                                Console.WriteLine($"Sending - ID {kvp.Key} Health: {kvp.Value.Health}");
                             }
                             server.SendToAll(outMsg, NetDeliveryMethod.Unreliable);
                             break;
@@ -62,16 +84,21 @@ namespace MyRpgEngine
                             else if (msg.SenderConnection.Status == NetConnectionStatus.Disconnected)
                             {
                                 Console.WriteLine($"Player {id} disconnected");
-                                // Remove player from the list
-                                if (playerData.ContainsKey(id))
-                                    playerData.Remove(id);
+                                playerData.Remove(id);
                             }
-                            playerData.Remove(id);
                             break;
                     }
                 }
                 System.Threading.Thread.Sleep(1);
             }
         }
+    }
+
+    class PlayerData
+    {
+        public Vector2 Position { get; set; }
+        public int Health { get; set; } = 100; // Default value
+        public int Mana { get; set; } = 50;
+        public bool IsAttacking { get; set; }
     }
 }
