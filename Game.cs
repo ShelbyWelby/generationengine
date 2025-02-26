@@ -78,12 +78,23 @@ namespace MyRpgEngine
 
             foreach (var data in otherPlayers.Values)
             {
+                // Other player square
                 GL.Begin(PrimitiveType.Quads);
-                GL.Color3(0.0f, 0.0f, 1.0f);
+                GL.Color3(0.0f, 0.0f, 1.0f); // Blue
                 GL.Vertex2(data.Position.X - 50, data.Position.Y - 50);
                 GL.Vertex2(data.Position.X + 50, data.Position.Y - 50);
                 GL.Vertex2(data.Position.X + 50, data.Position.Y + 50);
                 GL.Vertex2(data.Position.X - 50, data.Position.Y + 50);
+                GL.End();
+
+                // Health bar for other player
+                float healthWidth = (data.Health / 100f) * 100;
+                GL.Begin(PrimitiveType.Quads);
+                GL.Color3(0.0f, 1.0f, 0.0f); // Green
+                GL.Vertex2(data.Position.X - 50, data.Position.Y - 70);
+                GL.Vertex2(data.Position.X - 50 + healthWidth, data.Position.Y - 70);
+                GL.Vertex2(data.Position.X - 50 + healthWidth, data.Position.Y - 60);
+                GL.Vertex2(data.Position.X - 50, data.Position.Y - 60);
                 GL.End();
             }
 
@@ -137,12 +148,23 @@ namespace MyRpgEngine
 
         public void Render()
         {
+            // Player square
             GL.Begin(PrimitiveType.Quads);
-            GL.Color3(1.0f, 0.0f, 0.0f);
+            GL.Color3(1.0f, 0.0f, 0.0f); // Red
             GL.Vertex2(Position.X - 50, Position.Y - 50);
             GL.Vertex2(Position.X + 50, Position.Y - 50);
             GL.Vertex2(Position.X + 50, Position.Y + 50);
             GL.Vertex2(Position.X - 50, Position.Y + 50);
+            GL.End();
+
+            // Health bar: 100px wide max, 10px tall, 20px above player
+            float healthWidth = (Health / 100f) * 100; // Scale 0-100
+            GL.Begin(PrimitiveType.Quads);
+            GL.Color3(0.0f, 1.0f, 0.0f); // Green
+            GL.Vertex2(Position.X - 50, Position.Y - 70); // Top-left
+            GL.Vertex2(Position.X - 50 + healthWidth, Position.Y - 70); // Top-right
+            GL.Vertex2(Position.X - 50 + healthWidth, Position.Y - 60); // Bottom-right
+            GL.Vertex2(Position.X - 50, Position.Y - 60); // Bottom-left
             GL.End();
         }
     }
